@@ -26,7 +26,6 @@ import (
 	"strconv"
 	"strings"
 	"sync"
-	"sync/atomic"
 	"time"
 
 	"google.golang.org/grpc"
@@ -372,8 +371,7 @@ func (a *Client) Serve() {
 				continue
 			}
 			metrics.Metrics.ObserveDialLatency(time.Since(start))
-
-			connID := atomic.AddInt64(&a.nextConnID, 1)
+			connID := a.cs.connId.Add()
 			dataCh := make(chan []byte, 5)
 			ctx := &connContext{
 				conn:   conn,

@@ -19,6 +19,7 @@ package agent
 import (
 	"fmt"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"google.golang.org/grpc"
@@ -26,6 +27,21 @@ import (
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/klog/v2"
 )
+
+type ConnectID struct {
+	id int64
+	mu sync.Mutex
+}
+
+func NewConnectID() *ConnectID {
+	return &ConnectID{id: 0}
+}
+
+func (c *ConnectID) Add() int64 {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	return atomic.AddInt64(&c.id, 1)
+}
 
 // ClientSet consists of clients connected to each instance of an HA proxy server.
 type ClientSet struct {
@@ -51,6 +67,7 @@ type ClientSet struct {
 
 	agentIdentifiers string // The identifiers of the agent, which will be used
 	// by the server when choosing agent
+	connId *ConnectID
 }
 
 func (cs *ClientSet) ClientsCount() int {
@@ -121,6 +138,7 @@ type ClientSetConfig struct {
 func (cc *ClientSetConfig) NewAgentClientSet(stopCh <-chan struct{}) *ClientSet {
 	return &ClientSet{
 		clients:                 make(map[string]*Client),
+		connId:                  NewConnectID(),
 		agentID:                 cc.AgentID,
 		agentIdentifiers:        cc.AgentIdentifiers,
 		address:                 cc.Address,
